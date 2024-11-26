@@ -12,6 +12,7 @@ class Menu:
         self.obstacle_rect = None
         self.back_button_rect = None
         self.exit_button_rect = None
+        self.previous_state = None
 
     def run_menu(self):
         while True:
@@ -77,6 +78,8 @@ class Menu:
 
     def show_map_selection(self):
         running = True
+        quit_button_rect = pygame.Rect(10, 10, 85, 40)  # (x, y, width, height)
+
         while running:
             self.ui.clear_screen()
 
@@ -111,7 +114,8 @@ class Menu:
 
             # Render No Obstacle Button
             pygame.draw.rect(self.ui.screen, (66, 192, 104),
-                             (no_obstacle_button_x, no_obstacle_button_y, button_width, button_height), border_radius=10)
+                             (no_obstacle_button_x, no_obstacle_button_y, button_width, button_height),
+                             border_radius=10)
             no_obstacle_button = font_button.render("No Obstacles", True, no_obstacle_color)
             self.no_obstacle_rect = self.ui.screen.blit(no_obstacle_button, (
                 no_obstacle_button_x + (button_width - no_obstacle_button.get_width()) / 2,
@@ -124,6 +128,13 @@ class Menu:
             self.obstacle_rect = self.ui.screen.blit(obstacle_button, (
                 obstacle_button_x + (button_width - obstacle_button.get_width()) / 2,
                 obstacle_button_y + (button_height - obstacle_button.get_height()) / 2))
+
+            # Render Quit Button
+            pygame.draw.rect(self.ui.screen, (192, 66, 66), quit_button_rect)
+            quit_text = font_button.render("Quit", True, self.ui.white)
+            self.ui.screen.blit(quit_text, (
+                quit_button_rect.x + (quit_button_rect.width - quit_text.get_width()) // 2,
+                quit_button_rect.y + (quit_button_rect.height - quit_text.get_height()) // 2))
 
             pygame.display.update()
 
@@ -140,6 +151,9 @@ class Menu:
                         self.map_type = "obstacle"
                         running = False
                         self.game_design()
+                    elif quit_button_rect.collidepoint(event.pos):
+                        self.show_start_menu()
+                        running = False
 
     def no_obstacle_map(self):
         running = True
@@ -155,8 +169,11 @@ class Menu:
         flag_position = None
         dragging_flag = False
 
+        # Define buttons
         button_font = self.ui.get_font(20)
         start_button_rect = pygame.Rect(self.ui.width - 360, 350, 250, 50)
+        next_button_rect = pygame.Rect(self.ui.width - 360, 450, 250, 50)
+        quit_button_rect = pygame.Rect(10, 10, 80, 40)  # Quit button in top-left corner
 
         while running:
             for event in pygame.event.get():
@@ -174,36 +191,36 @@ class Menu:
                         if flag_position is None:  # Initialize flag's position on the map
                             flag_position = [margin_x, margin_y]
 
-                    # Check if clicking inside the flag's position to start dragging
-                    if flag_position and dragging_flag:
-                        flag_rect = pygame.Rect(flag_position[0], flag_position[1], cell_size, cell_size)
-                        if flag_rect.collidepoint(mouse_pos):
-                            dragging_flag = True
+                    # Next button clicked
+                    if next_button_rect.collidepoint(mouse_pos):
+                        self.game_implementation_no_obs_map(flag_position=flag_position)
+
+                    # Quit button clicked
+                    if quit_button_rect.collidepoint(mouse_pos):
+                        self.show_map_selection()
+
 
                 # Handle flag dragging
                 if event.type == pygame.MOUSEMOTION and dragging_flag and flag_position:
-                    # Update the flag's position as the mouse moves
                     mouse_x, mouse_y = pygame.mouse.get_pos()
                     flag_position[0] = mouse_x - cell_size // 2  # Center flag under cursor
                     flag_position[1] = mouse_y - cell_size // 2
 
-                # Handle mouse release (drop the flag)
+                # Handle mouse release
                 if event.type == pygame.MOUSEBUTTONUP and dragging_flag:
                     dragging_flag = False
                     if flag_position:
-                        # Snap flag to the nearest grid cell
                         flag_position[0] = ((flag_position[0] - margin_x) // cell_size) * cell_size + margin_x
                         flag_position[1] = ((flag_position[1] - margin_y) // cell_size) * cell_size + margin_y
 
-                        # Limit flag to map boundaries
+                        # Reset position if outside map boundaries
                         if not (margin_x <= flag_position[0] < margin_x + map_width and
                                 margin_y <= flag_position[1] < margin_y + map_height):
-                            flag_position = None  # Reset position if dropped outside the map
+                            flag_position = None
 
-            # Clear the screen with a solid black color
             self.ui.screen.fill(self.ui.black)
 
-            # Draw the map grid with grey cells
+            # Draw map grid
             for row in range(grid_size):
                 for col in range(grid_size):
                     rect_x = margin_x + col * cell_size
@@ -211,16 +228,29 @@ class Menu:
                     pygame.draw.rect(self.ui.screen, (169, 169, 169), (rect_x, rect_y, cell_size, cell_size), 0)
                     pygame.draw.rect(self.ui.screen, self.ui.white, (rect_x, rect_y, cell_size, cell_size), 1)
 
-            # Draw the flag if it exists
+            # Draw the flag
             if flag_position:
                 self.ui.screen.blit(flag_img, flag_position)
 
-            # Draw the "Start" button
+            # Render buttons
             pygame.draw.rect(self.ui.screen, (66, 192, 104), start_button_rect)
             start_text = button_font.render("Start", True, self.ui.white)
             self.ui.screen.blit(start_text,
                                 (start_button_rect.x + (start_button_rect.width - start_text.get_width()) // 2,
                                  start_button_rect.y + (start_button_rect.height - start_text.get_height()) // 2))
+
+            pygame.draw.rect(self.ui.screen, (66, 192, 104), next_button_rect)
+            next_text = button_font.render("Next", True, self.ui.white)
+            self.ui.screen.blit(next_text,
+                                (next_button_rect.x + (next_button_rect.width - next_text.get_width()) // 2,
+                                 next_button_rect.y + (next_button_rect.height - next_text.get_height()) // 2))
+
+            # Render Quit button
+            pygame.draw.rect(self.ui.screen, (192, 66, 66), quit_button_rect)
+            quit_text = button_font.render("Quit", True, self.ui.white)
+            self.ui.screen.blit(quit_text, (
+                quit_button_rect.x + (quit_button_rect.width - quit_text.get_width()) // 2,
+                quit_button_rect.y + (quit_button_rect.height - quit_text.get_height()) // 2))
 
             pygame.display.update()
 
@@ -242,10 +272,11 @@ class Menu:
         dragging_flag = False
         obstacles = []
 
-        # Button properties
         button_font = self.ui.get_font(20)
         start_button_rect = pygame.Rect(self.ui.width - 360, 315, 250, 50)
         obstacle_button_rect = pygame.Rect(self.ui.width - 360, 385, 250, 50)
+        next_button_rect = pygame.Rect(self.ui.width - 360, 455, 250, 50)
+        quit_button_rect = pygame.Rect(10, 10, 80, 40)
 
         while running:
             for event in pygame.event.get():
@@ -268,6 +299,13 @@ class Menu:
                     # Obstacles button clicked
                     if obstacle_button_rect.collidepoint(mouse_pos):
                         mode = "obstacle"  # Switch to obstacle placement mode
+
+                    if next_button_rect.collidepoint(mouse_pos):
+                        self.game_implementation_obs_map(flag_position=flag_position, obstacles=obstacles)
+                        running = False
+
+                if quit_button_rect.collidepoint(mouse_pos):
+                        self.show_map_selection()
 
                 # Handle flag dragging in "start" mode
                 if event.type == pygame.MOUSEMOTION and dragging_flag and mode == "start":
@@ -332,6 +370,18 @@ class Menu:
                 obstacle_button_rect.x + (obstacle_button_rect.width - obstacle_text.get_width()) // 2,
                 obstacle_button_rect.y + (obstacle_button_rect.height - obstacle_text.get_height()) // 2))
 
+            pygame.draw.rect(self.ui.screen, (66, 192, 104), next_button_rect)
+            next_text = button_font.render("Next", True, self.ui.white)
+            self.ui.screen.blit(next_text,
+                                (next_button_rect.x + (next_button_rect.width - next_text.get_width()) // 2,
+                                 next_button_rect.y + (next_button_rect.height - next_text.get_height()) // 2))
+
+            pygame.draw.rect(self.ui.screen, (192, 66, 66), quit_button_rect)
+            quit_text = button_font.render("Quit", True, self.ui.white)
+            self.ui.screen.blit(quit_text, (
+                quit_button_rect.x + (quit_button_rect.width - quit_text.get_width()) // 2,
+                quit_button_rect.y + (quit_button_rect.height - quit_text.get_height()) // 2))
+
             pygame.display.update()
 
     # game design
@@ -341,10 +391,181 @@ class Menu:
         if self.map_type == "obstacle":
             self.obstacle_map()
 
-    #tao them 1 button next nua o moi map
-    #bam next thi se chuyen sang game ( co snake, co xuat hien Food ) 
-    # giao dien thi co cac thuat toan DFS, BFS, A* v.v 
-    # set timer cho cac thuat toan ......
+    def game_implementation_obs_map(self, flag_position=None, obstacles=None):
+        running = True
+        map_width, map_height = 850, 650
+        grid_size = 28
+        cell_size = map_width // grid_size - 6  # Size of each grid cell
+        margin_x = (self.ui.width - map_width) // 2
+        margin_y = (self.ui.height - map_height) // 2 - 10
 
-# Run the menu
+        # Define buttons
+        button_font = self.ui.get_font(20)
+        play_button_rect = pygame.Rect(self.ui.width - 260, 100, 200, 50)
+        timer_button_rect = pygame.Rect(self.ui.width - 260, 200, 200, 50)
+        points_button_rect = pygame.Rect(self.ui.width - 260, 300, 200, 50)
+        quit_button_rect = pygame.Rect(10, 10, 80, 40)  # Quit button in top-left corner
+
+        # Initialize game state
+        timer = 0
+        points = 0
+
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = pygame.mouse.get_pos()
+
+                    if play_button_rect.collidepoint(mouse_pos):
+                        print("Play button clicked!")  # Placeholder for play functionality
+                    if timer_button_rect.collidepoint(mouse_pos):
+                        print("Timer button clicked!")  # Placeholder for timer functionality
+                    if points_button_rect.collidepoint(mouse_pos):
+                        print("Points button clicked!")  # Placeholder for points functionality
+                    if quit_button_rect.collidepoint(mouse_pos):
+                        self.obstacle_map()
+                        running = False
+
+            self.ui.screen.fill(self.ui.black)
+
+            # Draw the map grid
+            for row in range(grid_size):
+                for col in range(grid_size):
+                    rect_x = margin_x + col * cell_size
+                    rect_y = margin_y + row * cell_size
+                    pygame.draw.rect(self.ui.screen, (169, 169, 169), (rect_x, rect_y, cell_size, cell_size), 0)
+                    pygame.draw.rect(self.ui.screen, self.ui.white, (rect_x, rect_y, cell_size, cell_size), 1)
+
+            # Draw the flag
+            if flag_position:
+                flag_img = pygame.image.load('assets/flag.jpg')  # Load the flag image
+                flag_img = pygame.transform.scale(flag_img, (cell_size, cell_size))  # Scale the flag to fit a grid cell
+                self.ui.screen.blit(flag_img, flag_position)
+
+            # Draw the obstacles
+            if obstacles:
+                obstacle_img = pygame.image.load('assets/greenpile.jpg')
+                obstacle_img = pygame.transform.scale(obstacle_img,
+                                                      (cell_size, cell_size))  # Scale obstacles to cell size
+                for obstacle in obstacles:
+                    obs_x = margin_x + obstacle[0] * cell_size
+                    obs_y = margin_y + obstacle[1] * cell_size
+                    self.ui.screen.blit(obstacle_img, (obs_x, obs_y))
+
+            # Render Play button
+            pygame.draw.rect(self.ui.screen, (66, 192, 104), play_button_rect)
+            play_text = button_font.render("Play", True, self.ui.white)
+            self.ui.screen.blit(play_text, (
+                play_button_rect.x + (play_button_rect.width - play_text.get_width()) // 2,
+                play_button_rect.y + (play_button_rect.height - play_text.get_height()) // 2))
+
+            # Render Timer button
+            pygame.draw.rect(self.ui.screen, (66, 192, 104), timer_button_rect)
+            timer_text = button_font.render(f"Timer: {timer}", True, self.ui.white)
+            self.ui.screen.blit(timer_text, (
+                timer_button_rect.x + (timer_button_rect.width - timer_text.get_width()) // 2,
+                timer_button_rect.y + (timer_button_rect.height - timer_text.get_height()) // 2))
+
+            # Render Points button
+            pygame.draw.rect(self.ui.screen, (66, 192, 104), points_button_rect)
+            points_text = button_font.render(f"Points: {points}", True, self.ui.white)
+            self.ui.screen.blit(points_text, (
+                points_button_rect.x + (points_button_rect.width - points_text.get_width()) // 2,
+                points_button_rect.y + (points_button_rect.height - points_text.get_height()) // 2))
+
+            # Render Quit button
+            pygame.draw.rect(self.ui.screen, (192, 66, 66), quit_button_rect)
+            quit_text = button_font.render("Quit", True, self.ui.white)
+            self.ui.screen.blit(quit_text, (
+                quit_button_rect.x + (quit_button_rect.width - quit_text.get_width()) // 2,
+                quit_button_rect.y + (quit_button_rect.height - quit_text.get_height()) // 2))
+
+            pygame.display.update()
+
+    def game_implementation_no_obs_map(self, flag_position=None):
+        running = True
+        map_width, map_height = 850, 650
+        grid_size = 28
+        cell_size = map_width // grid_size - 6  # Size of each grid cell
+        margin_x = (self.ui.width - map_width) // 2
+        margin_y = (self.ui.height - map_height) // 2 - 10
+
+        # Define buttons
+        button_font = self.ui.get_font(20)
+        play_button_rect = pygame.Rect(self.ui.width - 260, 100, 200, 50)
+        timer_button_rect = pygame.Rect(self.ui.width - 260, 200, 200, 50)
+        points_button_rect = pygame.Rect(self.ui.width - 260, 300, 200, 50)
+        quit_button_rect = pygame.Rect(10, 10, 80, 40)  # Quit button in top-left corner
+
+        # Initialize game state
+        timer = 0
+        points = 0
+
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = pygame.mouse.get_pos()
+
+                    if play_button_rect.collidepoint(mouse_pos):
+                        print("Play button clicked!")  # Placeholder for play functionality
+                    if timer_button_rect.collidepoint(mouse_pos):
+                        print("Timer button clicked!")  # Placeholder for timer functionality
+                    if points_button_rect.collidepoint(mouse_pos):
+                        print("Points button clicked!")  # Placeholder for points functionality
+                    if quit_button_rect.collidepoint(mouse_pos):
+                        self.obstacle_map()
+                        running = False
+
+            self.ui.screen.fill(self.ui.black)
+
+            # Draw the map grid
+            for row in range(grid_size):
+                for col in range(grid_size):
+                    rect_x = margin_x + col * cell_size
+                    rect_y = margin_y + row * cell_size
+                    pygame.draw.rect(self.ui.screen, (169, 169, 169), (rect_x, rect_y, cell_size, cell_size), 0)
+                    pygame.draw.rect(self.ui.screen, self.ui.white, (rect_x, rect_y, cell_size, cell_size), 1)
+
+            # Draw the flag
+            if flag_position:
+                flag_img = pygame.image.load('assets/flag.jpg')  # Load the flag image
+                flag_img = pygame.transform.scale(flag_img, (cell_size, cell_size))  # Scale the flag to fit a grid cell
+                self.ui.screen.blit(flag_img, flag_position)
+
+            pygame.draw.rect(self.ui.screen, (66, 192, 104), play_button_rect)
+            play_text = button_font.render("Play", True, self.ui.white)
+            self.ui.screen.blit(play_text, (
+                play_button_rect.x + (play_button_rect.width - play_text.get_width()) // 2,
+                play_button_rect.y + (play_button_rect.height - play_text.get_height()) // 2))
+
+            # Render Timer button
+            pygame.draw.rect(self.ui.screen, (66, 192, 104), timer_button_rect)
+            timer_text = button_font.render(f"Timer: {timer}", True, self.ui.white)
+            self.ui.screen.blit(timer_text, (
+                timer_button_rect.x + (timer_button_rect.width - timer_text.get_width()) // 2,
+                timer_button_rect.y + (timer_button_rect.height - timer_text.get_height()) // 2))
+
+            # Render Points button
+            pygame.draw.rect(self.ui.screen, (66, 192, 104), points_button_rect)
+            points_text = button_font.render(f"Points: {points}", True, self.ui.white)
+            self.ui.screen.blit(points_text, (
+                points_button_rect.x + (points_button_rect.width - points_text.get_width()) // 2,
+                points_button_rect.y + (points_button_rect.height - points_text.get_height()) // 2))
+
+            # Render Quit button
+            pygame.draw.rect(self.ui.screen, (192, 66, 66), quit_button_rect)
+            quit_text = button_font.render("Quit", True, self.ui.white)
+            self.ui.screen.blit(quit_text, (
+                quit_button_rect.x + (quit_button_rect.width - quit_text.get_width()) // 2,
+                quit_button_rect.y + (quit_button_rect.height - quit_text.get_height()) // 2))
+
+            pygame.display.update()
+
 
