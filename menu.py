@@ -1,635 +1,424 @@
 import pygame
+from Logic.ailogic import *
+from Logic.ailogic import AIPlayerGameLogic
 
 
 class Menu:
     def __init__(self, ui):
         self.ui = ui
-        self.selected_mode = None
+        #self.selected_mode = None
         self.selected_game_mode = None
         self.map_type = None
-        self.start_button_rect = None
-        self.no_obstacle_rect = None
-        self.obstacle_rect = None
-        self.back_button_rect = None
-        self.exit_button_rect = None
-        self.previous_state = None
+        self.current_screen = None
+
+        # Options for each screen
+        option_names = []
+        option_functions = []
+
+        # Font handle
+        self.text_font_path = r'assets/PressStart2P-Regular.ttf'
+        self.title_font_path = r'assets/PressStart2P-Regular.ttf'
+
+        # self.title_font_size = 40
+        self.subtitle_font_size = 25
+        self.text_font_size = 15
+
+    # create background UI
+    def background_screen(self):
+        self.ui.clear_screen()
+
+        # border create
+        self.ui.display_image(3, 0, 0.15, r"assets/images/border_top_left.png")
+        self.ui.display_image(self.ui.width - 67, 0, 0.15, r"assets/images/border_top_right.png")
+        self.ui.display_image(self.ui.width - 67, self.ui.height - 89, 0.15, r"assets/images/border_bot_right.png")
+        self.ui.display_image(3, self.ui.height - 89, 0.15, r"assets/images/border_bot_left.png")
+
+        self.ui.display_text_center("@ HCMUTE - 2024", self.ui.height - 14, self.ui.light_red, 15, self.title_font_path)
+
+    # function game quit
+    def exit_game(self):
+        pygame.quit()
+        exit()
 
     def run_menu(self):
-        while True:
-            self.ui.clear_screen()
-            self.show_start_menu()
-            pygame.display.update()
-            self.handle_events()
-
-    def show_start_menu(self):
-        # Title
-        font_title = self.ui.get_font(60)
-        title = font_title.render("Snake Game", True, (242, 172, 205))
-        shadow = font_title.render("Snake Game", True, (237, 138, 185))
-
-        self.ui.screen.blit(shadow, [self.ui.width / 2 - title.get_width() / 2 + 3, self.ui.height / 4 + 3])
-        self.ui.screen.blit(title, [self.ui.width / 2 - title.get_width() / 2, self.ui.height / 4])
-
-        # Buttons start quit
-        font_button = self.ui.get_font(30)
-        button_width = 200
-        button_height = 60
-        button_spacing = 20
-
-        start_button_x = self.ui.width / 2 - button_width / 2
-        start_button_y = self.ui.height / 2
-        exit_button_x = self.ui.width / 2 - button_width / 2
-        exit_button_y = start_button_y + button_height + button_spacing
-
-        mouse_pos = pygame.mouse.get_pos()
-        start_color = (255, 255, 0) if pygame.Rect(start_button_x, start_button_y, button_width,
-                                                   button_height).collidepoint(mouse_pos) else (255, 255, 255)
-        exit_color = (255, 255, 0) if pygame.Rect(exit_button_x, exit_button_y, button_width,
-                                                  button_height).collidepoint(mouse_pos) else (255, 255, 255)
-
-        # Render Start Button
-        pygame.draw.rect(self.ui.screen, (66, 192, 104), (start_button_x, start_button_y, button_width, button_height),
-                         border_radius=10)
-        start_button = font_button.render("Start", True, start_color)
-        self.start_button_rect = self.ui.screen.blit(start_button, (
-            start_button_x + (button_width - start_button.get_width()) / 2,
-            start_button_y + (button_height - start_button.get_height()) / 2))
-
-        # Render Exit Button
-        pygame.draw.rect(self.ui.screen, (66, 192, 104), (exit_button_x, exit_button_y, button_width, button_height),
-                         border_radius=10)
-        exit_button = font_button.render("Quit", True, exit_color)
-        self.exit_button_rect = self.ui.screen.blit(exit_button, (
-            exit_button_x + (button_width - exit_button.get_width()) / 2,
-            exit_button_y + (button_height - exit_button.get_height()) / 2))
-
-    def handle_events(self):
-        mouse_pos = pygame.mouse.get_pos()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 exit()
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if self.start_button_rect and self.start_button_rect.collidepoint(event.pos):
-                    self.show_map_selection()
-                elif self.exit_button_rect and self.exit_button_rect.collidepoint(event.pos):
-                    pygame.quit()
-                    exit()
+
+        next_screen = self.start_screen_handle
+        while True:
+            next_screen = next_screen()
+            if not next_screen:
+                next_screen = self.start_screen_handle
+
+    # ==========================
+    #       Start screen
+    # ==========================
+
+    def start_screen_handle(self):
+        self.background_screen()
+        self.current_screen = 'start_screen'
+
+        # Display start_screen unchanged things
+        self.ui.display_image(self.ui.width // (10 / 4.5), self.ui.height // 3.5, 0.6,
+                              r"assets/images/main_thumb.png")  # Snake thumbnail display
+        self.ui.display_text_center("SNAKE GAME", self.ui.height // 4, self.ui.green, 100,
+                                    self.title_font_path)  # Title display
+
+        # options
+        self.option_names = ['Play', 'Setting', 'Credit', 'Quit']
+        self.option_functions = [self.start_game, self.show_setting, self.credit_screen_handle, self.exit_game]
+
+        # Menu and event handler
+        options = self.update_start_screen()
+        return self.handle_events(self.update_start_screen, options)
+
+    def update_start_screen(self, selected_option=0):
+        # Options storage
+        options = []
+        option_left_padding = self.ui.width // 4 + 30
+        first_opt_top_padding = self.ui.height // (10 / 4)
+
+        # Options display
+        for i in range(len(self.option_names)):
+            color = self.ui.red if i == selected_option else self.ui.white
+            options.append({
+                'option_rect': self.ui.display_text(self.option_names[i], option_left_padding,
+                                                    first_opt_top_padding + 40 * i, color, self.text_font_size,
+                                                    self.text_font_path),
+                'option_func': self.option_functions[i]
+            })
+
+        pygame.display.update()
+        return options
+
+    # ==========================
+    #       Credit screen
+    # ==========================
+
+    def credit_screen_handle(self):
+        self.background_screen()
+        self.current_screen = 'start_screen'
+        # Display start_screen unchanged things
+        self.ui.display_text_center("OUR MEMBER", self.ui.height // 10, self.ui.white, self.subtitle_font_size,
+                                    self.text_font_path)  # Title display
+
+        # Options for start_screen
+        self.option_names = ['22110013 Nguyen Le Tung Chi', ' 22110034 Nguyen Gia Huy', '221100 Do Duc Anh',
+                             '22110082 Nguyen Duc Tri', 'Return']
+        self.option_functions = [None, None, None, None, self.go_back]
+
+        # Menu and event handler
+        options = self.update_credit_screen()
+        return self.handle_events(self.update_credit_screen, options)
+
+    def update_credit_screen(self, selected_option=0):
+        # Options storage
+        options = []
+        option_left_padding = self.ui.width // 6
+        first_opt_top_padding = self.ui.height // 3
+        image_paths = [r'assets/images/mem_tchi.png', r'assets/images/mem_ghuy.png', r'assets/images/mem_ducanh.png',
+                       r'assets/images/mem_sh1n.png', r'assets/images/empty_border.png']
+
+        # Options display
+        for i in range(len(self.option_names)):
+            color = self.ui.light_blue if i == selected_option else self.ui.white
+            options.append({
+                'option_rect': self.ui.display_text(self.option_names[i], option_left_padding,
+                                                    first_opt_top_padding + 35 * i, color, self.text_font_size,
+                                                    self.text_font_path),
+                'option_func': self.option_functions[i]
+            })
+
+        # Member images
+        img_x = self.ui.width // (5 / 3)
+        img_y = self.ui.height // 3.5
+        # Fill old image (if appeared)
+        self.ui.screen.fill((0, 0, 0), (img_x, img_y, 200, 300))
+        self.ui.display_image(img_x, img_y, 0.7, image_paths[selected_option])
+
+        pygame.display.update()
+        return options
+
+
+    # Handle coming up events of specific screen
+    def handle_events(self, update_screen, options, selected_option=0):
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.exit_game()
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_DOWN:
+                        selected_option = (selected_option + 1) % len(options)
+                    elif event.key == pygame.K_UP:
+                        selected_option = (selected_option - 1) % len(options)
+                    elif event.key == pygame.K_RETURN and options[selected_option]['option_func']:
+                        # if enter key is stroked ---> return called screen (its function) if there is
+                        return options[selected_option]['option_func']
+
+            update_screen(selected_option)
+
+    def go_back(self):
+        return self.start_screen_handle
+
+    def show_setting(self):
+        selected_option = 0
+        self.option_names = ["Map with No Obstacles", "Map with Obstacles (Custom)", "Apply", "Return"]
+        self.option_functions = [
+            self.select_no_obstacle_map,  # Sets the map type to "no_obstacle"
+            self.map_editor_screen,  # Opens the map editor
+            self.apply_setting,  # Apply the selected settings
+            self.go_back,  # Return to the main menu
+        ]
+
+        while True:
+            self.ui.clear_screen()
+            self.background_screen()
+
+            # Display the title
+            self.ui.display_text_center("SETTINGS", self.ui.height // 8, self.ui.green, 40, self.title_font_path)
+
+            # Display the options dynamically
+            options = self.update_setting_screen(selected_option)
+
+            # Handle user input for navigation and selection
+            action = self.handle_events(self.update_setting_screen, options, selected_option)
+            if action:
+                result = action()
+                if result == "apply":
+                    break
+
+    def update_setting_screen(self, selected_option=0):
+        options = []
+
+        # Center the map selection options vertically
+        map_option_start_y = self.ui.height // 2 - 50  # Centered vertically with some padding
+
+        # Display map selection options
+        for i in range(2):  # First two options (Map with No Obstacles, Map with Obstacles)
+            color = self.ui.light_blue if i == selected_option else self.ui.white
+            options.append({
+                "option_rect": self.ui.display_text(self.option_names[i],
+                                                    self.ui.width // 2 - 150,  # Centered horizontally
+                                                    map_option_start_y + i * 50,  # Vertical spacing
+                                                    color, self.text_font_size,
+                                                    self.text_font_path),
+                "option_func": self.option_functions[i]
+            })
+
+        # Display "Apply" button (Bottom-middle of the screen)
+        apply_color = self.ui.light_blue if selected_option == 2 else self.ui.white
+        options.append({
+            "option_rect": self.ui.display_text(self.option_names[2],
+                                                self.ui.width // 2 - 50,  # Centered horizontally
+                                                self.ui.height - 250,  # Slightly above the bottom
+                                                apply_color, self.text_font_size,
+                                                self.text_font_path),
+            "option_func": self.option_functions[2]
+        })
+
+        # Display "Return" button (Bottom-middle of the screen, below "Apply")
+        return_color = self.ui.light_blue if selected_option == 3 else self.ui.white
+        options.append({
+            "option_rect": self.ui.display_text(self.option_names[3],
+                                                self.ui.width // 2 - 50,  # Centered horizontally
+                                                self.ui.height - 200,  # Below "Apply"
+                                                return_color, self.text_font_size,
+                                                self.text_font_path),
+            "option_func": self.option_functions[3]
+        })
+
+        pygame.display.update()
+        return options
+
+    def select_no_obstacle_map(self):
+        self.map_type = "no_obstacle"
+
+    def select_obstacle_map(self):
+        self.map_type = "obstacle"
+
+    def apply_setting(self):
+        print(f"Settings applied: Map type is {self.map_type}")
+        return "apply"
 
     def show_map_selection(self):
-        running = True
-        quit_button_rect = pygame.Rect(10, 10, 85, 40)  # (x, y, width, height)
-
-        while running:
+        while True:
             self.ui.clear_screen()
+            title = self.title_font.render("Choose map", True, (255, 255, 255))
+            no_obstacle_button = self.button_font.render("Map with no obstacles", True, (255, 255, 255))
+            obstacle_button = self.button_font.render("Map with obstacles", True, (255, 255, 255))
+            back_button = self.button_font.render("Return", True, (255, 255, 255))
 
-            # Title
-            font_title = self.ui.get_font(30)
-            title_text = "Choose map type"
-            title_shadow = font_title.render(title_text, True, (237, 138, 185))
-            title = font_title.render(title_text, True, (242, 172, 205))
+            spacing = 20
+            self.no_obstacle_rect = self.ui.screen.blit(no_obstacle_button, [self.ui.width / 4, self.ui.height / 2])
+            self.obstacle_rect = self.ui.screen.blit(obstacle_button, [self.ui.width / 4,
+                                                                       self.ui.height / 2 + no_obstacle_button.get_height() + spacing])
+            self.back_button_rect = self.ui.screen.blit(back_button, [10, 10])
 
-            title_x = (self.ui.width - title.get_width()) / 2
-            title_y = (self.ui.height / 4) - (title.get_height() / 2)
-
-            self.ui.screen.blit(title_shadow, [title_x + 3, title_y + 3])
-            self.ui.screen.blit(title, [title_x, title_y])
-
-            # Buttons
-            font_button = self.ui.get_font(20)
-            button_width = 500
-            button_height = 60
-            button_spacing = 20
-
-            no_obstacle_button_x = (self.ui.width - button_width) / 2
-            no_obstacle_button_y = self.ui.height / 2
-            obstacle_button_x = no_obstacle_button_x
-            obstacle_button_y = no_obstacle_button_y + button_height + button_spacing
-
-            mouse_pos = pygame.mouse.get_pos()
-            no_obstacle_color = (255, 255, 0) if pygame.Rect(no_obstacle_button_x, no_obstacle_button_y, button_width,
-                                                             button_height).collidepoint(mouse_pos) else (255, 255, 255)
-            obstacle_color = (255, 255, 0) if pygame.Rect(obstacle_button_x, obstacle_button_y, button_width,
-                                                          button_height).collidepoint(mouse_pos) else (255, 255, 255)
-
-            # Render No Obstacle Button
-            pygame.draw.rect(self.ui.screen, (66, 192, 104),
-                             (no_obstacle_button_x, no_obstacle_button_y, button_width, button_height),
-                             border_radius=10)
-            no_obstacle_button = font_button.render("No Obstacles", True, no_obstacle_color)
-            self.no_obstacle_rect = self.ui.screen.blit(no_obstacle_button, (
-                no_obstacle_button_x + (button_width - no_obstacle_button.get_width()) / 2,
-                no_obstacle_button_y + (button_height - no_obstacle_button.get_height()) / 2))
-
-            # Render Obstacles Button
-            pygame.draw.rect(self.ui.screen, (66, 192, 104),
-                             (obstacle_button_x, obstacle_button_y, button_width, button_height), border_radius=10)
-            obstacle_button = font_button.render("With Obstacles", True, obstacle_color)
-            self.obstacle_rect = self.ui.screen.blit(obstacle_button, (
-                obstacle_button_x + (button_width - obstacle_button.get_width()) / 2,
-                obstacle_button_y + (button_height - obstacle_button.get_height()) / 2))
-
-            # Render Quit Button
-            pygame.draw.rect(self.ui.screen, (192, 66, 66), quit_button_rect)
-            quit_text = font_button.render("Quit", True, self.ui.white)
-            self.ui.screen.blit(quit_text, (
-                quit_button_rect.x + (quit_button_rect.width - quit_text.get_width()) // 2,
-                quit_button_rect.y + (quit_button_rect.height - quit_text.get_height()) // 2))
+            self.ui.screen.blit(title, [self.ui.width / 4, self.ui.height / 4])
 
             pygame.display.update()
 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    exit()
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    if self.no_obstacle_rect and self.no_obstacle_rect.collidepoint(event.pos):
+    def handle_map_selection_events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    if self.no_obstacle_rect.collidepoint(event.pos):
                         self.map_type = "no_obstacle"
-                        running = False
-                        self.game_design()
-                    elif self.obstacle_rect and self.obstacle_rect.collidepoint(event.pos):
+                        self.start_game()
+                    elif self.obstacle_rect.collidepoint(event.pos):
                         self.map_type = "obstacle"
-                        running = False
-                        self.game_design()
-                    elif quit_button_rect.collidepoint(event.pos):
-                        self.show_start_menu()
-                        running = False
+                        self.start_game()
+                    elif self.back_button_rect.collidepoint(event.pos):
+                        self.go_back()
 
-    def no_obstacle_map(self):
-        running = True
-        map_width, map_height = 850, 650
-        grid_size = 28
-        cell_size = map_width // grid_size - 6  # Size of each grid cell
-        margin_x = (self.ui.width - map_width) // 2
-        margin_y = (self.ui.height - map_height) // 2 - 10
+    def map_editor_screen(self):
+        clock = pygame.time.Clock()
+        grid_color = self.ui.gray
+        obstacles = set()  # To store obstacle positions
 
-        # Load flag image
-        flag_img = pygame.image.load('assets/flag.jpg')  # Ensure this file is in your assets folder
-        flag_img = pygame.transform.scale(flag_img, (cell_size, cell_size))
-        flag_position = None
-        dragging_flag = False
+        # Load the obstacle image
+        obstacle_image = pygame.image.load("assets/greenpile.jpg")
+        obstacle_image = pygame.transform.scale(obstacle_image, (self.ui.snake_block, self.ui.snake_block))
 
-        # Variable to track the selected button
-        selected_button = None
+        # Button states
+        selected_button = 0  # 0 for "Obstacles", 1 for "Apply"
+        obstacle_active = False  # True when "Obstacles" is activated with Enter
 
-        # Define buttons
-        button_font = self.ui.get_font(20)
-        start_button_rect = pygame.Rect(self.ui.width - 360, 350, 250, 50)
-        next_button_rect = pygame.Rect(self.ui.width - 360, 450, 250, 50)
-        quit_button_rect = pygame.Rect(10, 10, 80, 40)  # Quit button in top-left corner
+        # Button positions
+        button_width, button_height = 200, 50
+        obstacle_button_rect = pygame.Rect(self.ui.width - 300, 200, button_width, button_height)
+        apply_button_rect = pygame.Rect(self.ui.width - 300, 270, button_width, button_height)
 
-        while running:
+        while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     exit()
 
-                # Handle mouse events
+                # Handle mouse button clicks
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_pos = pygame.mouse.get_pos()
+                    mouse_x, mouse_y = event.pos
 
-                    # Check if "Start" button clicked
-                    if start_button_rect.collidepoint(mouse_pos):
-                        selected_button = "start"
-                        dragging_flag = True  # Enable dragging
-                        if flag_position is None:  # Initialize flag's position on the map
-                            flag_position = [margin_x, margin_y]
+                    # Check if "Obstacles" button is clicked
+                    if obstacle_button_rect.collidepoint(mouse_x, mouse_y):
+                        selected_button = 0  # Highlight "Obstacles" button
+                        obstacle_active = True
 
-                    # Check if "Next" button clicked
-                    if next_button_rect.collidepoint(mouse_pos):
-                        selected_button = "next"
-                        self.game_implementation_no_obs_map(flag_position=flag_position)
-                        running = False
+                    # Check if "Apply" button is clicked
+                    elif apply_button_rect.collidepoint(mouse_x, mouse_y):
+                        # Save the map and return to the start menu
+                        self.map_type = "custom_obstacle"
+                        self.custom_map = {"obstacles": obstacles}
+                        return  # Exit the editor and save the map
 
-                    # Check if "Quit" button clicked
-                    if quit_button_rect.collidepoint(mouse_pos):
-                        selected_button = "quit"
-                        self.show_map_selection()
-                        running = False
+                # Navigate buttons with UP/DOWN keys
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP:
+                        selected_button = (selected_button - 1) % 2  # Wrap around between buttons
+                    elif event.key == pygame.K_DOWN:
+                        selected_button = (selected_button + 1) % 2  # Wrap around between buttons
+                    elif event.key == pygame.K_RETURN:
+                        # Select the active button
+                        if selected_button == 0:  # "Obstacles" selected
+                            obstacle_active = True  # Activate obstacle placement
+                        elif selected_button == 1:  # "Apply" selected
+                            self.map_type = "custom_obstacle"
+                            self.custom_map = {"obstacles": obstacles}
+                            return  # Exit the editor and save the map
 
-                # Handle flag dragging
-                if event.type == pygame.MOUSEMOTION and dragging_flag and flag_position:
-                    mouse_x, mouse_y = pygame.mouse.get_pos()
-                    flag_position[0] = mouse_x - cell_size // 2  # Center flag under cursor
-                    flag_position[1] = mouse_y - cell_size // 2
+            # Continuously place obstacles if "Obstacles" button is active and "O" is held
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_o] and obstacle_active:
+                mouse_x, mouse_y = pygame.mouse.get_pos()
+                grid_x = (mouse_x - self.ui.grid_pos) // self.ui.snake_block
+                grid_y = (mouse_y - self.ui.grid_pos) // self.ui.snake_block
+                if 0 <= grid_x < self.ui.cols and 0 <= grid_y < self.ui.rows:
+                    obstacles.add((grid_y, grid_x))  # Add to obstacles set
 
-                # Handle mouse release
-                if event.type == pygame.MOUSEBUTTONUP and dragging_flag:
-                    dragging_flag = False
-                    if flag_position:
-                        # Snap flag to the nearest grid cell
-                        flag_position[0] = ((flag_position[0] - margin_x) // cell_size) * cell_size + margin_x
-                        flag_position[1] = ((flag_position[1] - margin_y) // cell_size) * cell_size + margin_y
+            # Draw the grid
+            self.ui.clear_screen()
+            self.ui.draw_grid()
 
-                        # Reset position if outside map boundaries
-                        if not (margin_x <= flag_position[0] < margin_x + map_width and
-                                margin_y <= flag_position[1] < margin_y + map_height):
-                            flag_position = None
-
-            self.ui.screen.fill(self.ui.black)
-
-            # Draw map grid
-            for row in range(grid_size):
-                for col in range(grid_size):
-                    rect_x = margin_x + col * cell_size
-                    rect_y = margin_y + row * cell_size
-                    pygame.draw.rect(self.ui.screen, (169, 169, 169), (rect_x, rect_y, cell_size, cell_size), 0)
-                    pygame.draw.rect(self.ui.screen, self.ui.white, (rect_x, rect_y, cell_size, cell_size), 1)
-
-            # Draw the flag
-            if flag_position:
-                self.ui.screen.blit(flag_img, flag_position)
-
-            # Draw buttons with the selected button highlighted
-            # Highlight Start button
-            pygame.draw.rect(self.ui.screen, (255, 255, 0) if selected_button == "start" else (66, 192, 104),
-                             start_button_rect)
-            start_text = button_font.render("Start", True, self.ui.white)
-            self.ui.screen.blit(start_text, (
-                start_button_rect.x + (start_button_rect.width - start_text.get_width()) // 2,
-                start_button_rect.y + (start_button_rect.height - start_text.get_height()) // 2))
-
-            # Highlight Next button
-            pygame.draw.rect(self.ui.screen, (255, 255, 0) if selected_button == "next" else (66, 192, 104),
-                             next_button_rect)
-            next_text = button_font.render("Next", True, self.ui.white)
-            self.ui.screen.blit(next_text, (
-                next_button_rect.x + (next_button_rect.width - next_text.get_width()) // 2,
-                next_button_rect.y + (next_button_rect.height - next_text.get_height()) // 2))
-
-            # Highlight Quit button
-            pygame.draw.rect(self.ui.screen, (255, 255, 0) if selected_button == "quit" else (192, 66, 66),
-                             quit_button_rect)
-            quit_text = button_font.render("Quit", True, self.ui.white)
-            self.ui.screen.blit(quit_text, (
-                quit_button_rect.x + (quit_button_rect.width - quit_text.get_width()) // 2,
-                quit_button_rect.y + (quit_button_rect.height - quit_text.get_height()) // 2))
-
-            pygame.display.update()
-
-    def obstacle_map(self):
-        running = True
-        map_width, map_height = 850, 650
-        grid_size = 28
-        cell_size = map_width // grid_size - 6  # Size of each grid cell
-        margin_x = (self.ui.width - map_width) // 2
-        margin_y = (self.ui.height - map_height) // 2 - 10
-
-        # Load flag and obstacle images
-        flag_img = pygame.image.load('assets/flag.jpg')  # Ensure this file is in your assets folder
-        flag_img = pygame.transform.scale(flag_img, (cell_size, cell_size))
-        obstacle_img = pygame.image.load('assets/greenpile.jpg')
-        obstacle_img = pygame.transform.scale(obstacle_img, (cell_size, cell_size))
-
-        flag_position = None
-        dragging_flag = False
-        obstacles = []
-
-        # Variable to track the selected button
-        selected_button = None
-
-        button_font = self.ui.get_font(20)
-        start_button_rect = pygame.Rect(self.ui.width - 360, 315, 250, 50)
-        obstacle_button_rect = pygame.Rect(self.ui.width - 360, 385, 250, 50)
-        next_button_rect = pygame.Rect(self.ui.width - 360, 455, 250, 50)
-        quit_button_rect = pygame.Rect(10, 10, 80, 40)
-
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    exit()
-
-                # Handle mouse events
-                mouse_pos = pygame.mouse.get_pos()
-
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    # Check if "Start" button clicked
-                    if start_button_rect.collidepoint(mouse_pos):
-                        selected_button = "start"
-                        mode = "start"  # Switch to flag placement mode
-                        dragging_flag = True
-                        if flag_position is None:
-                            flag_position = [margin_x, margin_y]
-
-                    # Check if "Obstacles" button clicked
-                    if obstacle_button_rect.collidepoint(mouse_pos):
-                        selected_button = "obstacles"
-                        mode = "obstacle"  # Switch to obstacle placement mode
-
-                    # Check if "Next" button clicked
-                    if next_button_rect.collidepoint(mouse_pos):
-                        self.game_implementation_obs_map(flag_position=flag_position, obstacles=obstacles)
-                        running = False
-
-                    # Check if "Quit" button clicked
-                    if quit_button_rect.collidepoint(mouse_pos):
-                        self.show_map_selection()
-                        running = False
-
-                # Handle flag dragging in "start" mode
-                if event.type == pygame.MOUSEMOTION and dragging_flag and mode == "start":
-                    flag_position[0] = mouse_pos[0] - cell_size // 2  # Center flag under cursor
-                    flag_position[1] = mouse_pos[1] - cell_size // 2
-
-                # Handle flag drop in "start" mode
-                if event.type == pygame.MOUSEBUTTONUP and dragging_flag and mode == "start":
-                    dragging_flag = False
-                    if flag_position:
-                        # Snap flag to the nearest grid cell
-                        flag_position[0] = ((flag_position[0] - margin_x) // cell_size) * cell_size + margin_x
-                        flag_position[1] = ((flag_position[1] - margin_y) // cell_size) * cell_size + margin_y
-
-                        # Limit flag to map boundaries
-                        if not (margin_x <= flag_position[0] < margin_x + map_width and
-                                margin_y <= flag_position[1] < margin_y + map_height):
-                            flag_position = None  # Reset position if dropped outside the map
-
-                # Handle obstacle placement in "obstacle" mode
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_o and mode == "obstacle":
-                    # Place an obstacle at the mouse position
-                    if margin_x <= mouse_pos[0] < margin_x + map_width and margin_y <= mouse_pos[
-                        1] < margin_y + map_height:
-                        grid_x = (mouse_pos[0] - margin_x) // cell_size
-                        grid_y = (mouse_pos[1] - margin_y) // cell_size
-                        if (grid_x, grid_y) not in obstacles:  # Avoid duplicate obstacles
-                            obstacles.append((grid_x, grid_y))
-
-            # Clear the screen with a solid black color
-            self.ui.screen.fill(self.ui.black)
-
-            # Draw the map grid with grey cells
-            for row in range(grid_size):
-                for col in range(grid_size):
-                    rect_x = margin_x + col * cell_size
-                    rect_y = margin_y + row * cell_size
-                    pygame.draw.rect(self.ui.screen, (169, 169, 169), (rect_x, rect_y, cell_size, cell_size), 0)
-                    pygame.draw.rect(self.ui.screen, self.ui.white, (rect_x, rect_y, cell_size, cell_size), 1)
-
-            # Draw obstacles
+            # Draw obstacles using the obstacle image
             for obstacle in obstacles:
-                obs_x = margin_x + obstacle[0] * cell_size
-                obs_y = margin_y + obstacle[1] * cell_size
-                self.ui.screen.blit(obstacle_img, (obs_x, obs_y))
+                self.ui.screen.blit(
+                    obstacle_image,
+                    (
+                        self.ui.grid_pos + obstacle[1] * self.ui.snake_block,
+                        self.ui.grid_pos + obstacle[0] * self.ui.snake_block,
+                    ),
+                )
 
-            # Draw the flag if it exists
-            if flag_position:
-                self.ui.screen.blit(flag_img, flag_position)
+            # Draw buttons on the right without borders
+            obstacle_text_color = self.ui.blue if obstacle_active else (
+                self.ui.green if selected_button == 0 else self.ui.white)
+            self.ui.display_text("Obstacles", obstacle_button_rect.x + 30, obstacle_button_rect.y + 15,
+                                 obstacle_text_color, 25)
 
-            # Draw buttons with the selected button highlighted
-            # Highlight Start button
-            pygame.draw.rect(self.ui.screen, (255, 255, 0) if selected_button == "start" else (66, 192, 104),
-                             start_button_rect)
-            start_text = button_font.render("Start", True, self.ui.white)
-            self.ui.screen.blit(start_text, (
-                start_button_rect.x + (start_button_rect.width - start_text.get_width()) // 2,
-                start_button_rect.y + (start_button_rect.height - start_text.get_height()) // 2))
-
-            # Highlight Obstacles button
-            pygame.draw.rect(self.ui.screen, (255, 255, 0) if selected_button == "obstacles" else (66, 192, 104),
-                             obstacle_button_rect)
-            obstacle_text = button_font.render("Obstacles", True, self.ui.white)
-            self.ui.screen.blit(obstacle_text, (
-                obstacle_button_rect.x + (obstacle_button_rect.width - obstacle_text.get_width()) // 2,
-                obstacle_button_rect.y + (obstacle_button_rect.height - obstacle_text.get_height()) // 2))
-
-            # Draw Next button
-            pygame.draw.rect(self.ui.screen, (66, 192, 104), next_button_rect)
-            next_text = button_font.render("Next", True, self.ui.white)
-            self.ui.screen.blit(next_text, (
-                next_button_rect.x + (next_button_rect.width - next_text.get_width()) // 2,
-                next_button_rect.y + (next_button_rect.height - next_text.get_height()) // 2))
-
-            # Draw Quit button
-            pygame.draw.rect(self.ui.screen, (192, 66, 66), quit_button_rect)
-            quit_text = button_font.render("Quit", True, self.ui.white)
-            self.ui.screen.blit(quit_text, (
-                quit_button_rect.x + (quit_button_rect.width - quit_text.get_width()) // 2,
-                quit_button_rect.y + (quit_button_rect.height - quit_text.get_height()) // 2))
+            apply_text_color = self.ui.green if selected_button == 1 else self.ui.white
+            self.ui.display_text("Apply", apply_button_rect.x + 60, apply_button_rect.y + 15, apply_text_color, 25)
 
             pygame.display.update()
+            clock.tick(30)  # 30 FPS
 
-    # game design
-    def game_design(self):
+    def start_game(self):
+
+        if not self.map_type:
+            self.show_popup_message("You must set Setting first before playing!")
+            return  # Exit the function if map_type is not set
+
+        game_logic = None
+
         if self.map_type == "no_obstacle":
-            self.no_obstacle_map()
-        if self.map_type == "obstacle":
-            self.obstacle_map()
+            game_logic = AIPlayerGameLogic(self.ui, (self.ui.rows // 2, self.ui.cols // 2))
+        elif self.map_type == "custom_obstacle":
+            obstacles = self.custom_map["obstacles"]
+            game_logic = AIPlayerGameLogic(self.ui, (self.ui.rows // 2, self.ui.cols // 2))
+            game_logic.obstacles = obstacles
+        else:
+            print("Error: Invalid map type!")
+            return
 
-    def game_implementation_obs_map(self, flag_position=None, obstacles=None):
-        running = True
-        map_width, map_height = 850, 650
-        grid_size = 28
-        cell_size = map_width // grid_size - 6  # Size of each grid cell
-        margin_x = (self.ui.width - map_width) // 2
-        margin_y = (self.ui.height - map_height) // 2 - 10
+        if game_logic:
+            game_logic.game_loop()
 
-        # Define buttons and dropdown menu
-        button_font = self.ui.get_font(20)
-        play_button_rect = pygame.Rect(50, 100, 200, 50)
-        timer_button_rect = pygame.Rect(self.ui.width - 350, 200, 200, 50)
-        points_button_rect = pygame.Rect(self.ui.width - 350, 300, 200, 50)
-        quit_button_rect = pygame.Rect(10, 10, 80, 40)  # Quit button in top-left corner
-        dropdown_rects = [
-            pygame.Rect(50, 150 + i * 40, 200, 40) for i in range(3)
-        ]  # Dropdown for DFS, BFS, A*
-        dropdown_options = ["DFS", "BFS", "A*"]
-        show_dropdown = False
+    def show_popup_message(self, message):
+        font = pygame.font.Font(self.title_font_path, 20)
+        text_surface = font.render(message, True, self.ui.red)
 
-        # Initialize game state
-        timer = 0
-        points = 0
+        # Position the message just above "HCMUTE 2024" at the bottom
+        text_x = self.ui.width // 2
+        text_y = self.ui.height - 300  # Slightly above the bottom of the screen
+        text_rect = text_surface.get_rect(center=(text_x, text_y))
 
-        while running:
+        clock = pygame.time.Clock()
+
+        # Keep the popup displayed until the user presses Enter or Esc
+        while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     exit()
+                if event.type == pygame.KEYDOWN:
+                    # Dismiss the popup if the user presses Enter or Esc
+                    if event.key in [pygame.K_RETURN, pygame.K_ESCAPE]:
+                        return  # Exit the popup
 
-                mouse_pos = pygame.mouse.get_pos()
+            self.ui.clear_screen()
+            self.background_screen()  # Draw the static background (without re-rendering the start screen)
 
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    # Handle dropdown options
-                    if show_dropdown:
-                        for i, rect in enumerate(dropdown_rects):
-                            if rect.collidepoint(mouse_pos):
-                                print(f"{dropdown_options[i]} selected")  # Replace with action
-                                show_dropdown = False  # Hide the dropdown after selection
-                                break
+            # Draw the popup message
+            self.ui.screen.blit(text_surface, text_rect)
 
-                    # Check for Play button click to toggle dropdown
-                    if play_button_rect.collidepoint(mouse_pos):
-                        show_dropdown = not show_dropdown  # Toggle dropdown visibility
-
-                    # Check for Quit button click
-                    if quit_button_rect.collidepoint(mouse_pos):
-                        self.obstacle_map()
-                        running = False
-
-            self.ui.screen.fill(self.ui.black)
-
-            # Draw the map grid
-            for row in range(grid_size):
-                for col in range(grid_size):
-                    rect_x = margin_x + col * cell_size
-                    rect_y = margin_y + row * cell_size
-                    pygame.draw.rect(self.ui.screen, (169, 169, 169), (rect_x, rect_y, cell_size, cell_size), 0)
-                    pygame.draw.rect(self.ui.screen, self.ui.white, (rect_x, rect_y, cell_size, cell_size), 1)
-
-            # Draw the flag
-            if flag_position:
-                flag_img = pygame.image.load('assets/flag.jpg')  # Load the flag image
-                flag_img = pygame.transform.scale(flag_img, (cell_size, cell_size))  # Scale the flag to fit a grid cell
-                self.ui.screen.blit(flag_img, flag_position)
-
-            # Draw the obstacles
-            if obstacles:
-                obstacle_img = pygame.image.load('assets/greenpile.jpg')
-                obstacle_img = pygame.transform.scale(obstacle_img,
-                                                      (cell_size, cell_size))  # Scale obstacles to cell size
-                for obstacle in obstacles:
-                    obs_x = margin_x + obstacle[0] * cell_size
-                    obs_y = margin_y + obstacle[1] * cell_size
-                    self.ui.screen.blit(obstacle_img, (obs_x, obs_y))
-
-            # Render Play button
-            pygame.draw.rect(self.ui.screen, (66, 192, 104), play_button_rect)
-            play_text = button_font.render("Play", True, self.ui.white)
-            self.ui.screen.blit(play_text, (
-                play_button_rect.x + (play_button_rect.width - play_text.get_width()) // 2,
-                play_button_rect.y + (play_button_rect.height - play_text.get_height()) // 2))
-
-            # Render Timer button
-            timer_text = button_font.render(f"Timer: {timer}", True, self.ui.white)
-            self.ui.screen.blit(timer_text, (
-                timer_button_rect.x + (timer_button_rect.width - timer_text.get_width()) // 2,
-                timer_button_rect.y + (timer_button_rect.height - timer_text.get_height()) // 2))
-
-            # Render Points button
-            points_text = button_font.render(f"Points: {points}", True, self.ui.white)
-            self.ui.screen.blit(points_text, (
-                points_button_rect.x + (points_button_rect.width - points_text.get_width()) // 2,
-                points_button_rect.y + (points_button_rect.height - points_text.get_height()) // 2))
-
-            # Render Quit button
-            pygame.draw.rect(self.ui.screen, (192, 66, 66), quit_button_rect)
-            quit_text = button_font.render("Quit", True, self.ui.white)
-            self.ui.screen.blit(quit_text, (
-                quit_button_rect.x + (quit_button_rect.width - quit_text.get_width()) // 2,
-                quit_button_rect.y + (quit_button_rect.height - quit_text.get_height()) // 2))
-
-            # Render Dropdown
-            if show_dropdown:
-                for i, rect in enumerate(dropdown_rects):
-                    pygame.draw.rect(self.ui.screen, (100, 100, 100), rect)
-                    option_text = button_font.render(dropdown_options[i], True, self.ui.white)
-                    self.ui.screen.blit(option_text, (
-                        rect.x + (rect.width - option_text.get_width()) // 2,
-                        rect.y + (rect.height - option_text.get_height()) // 2))
+            # Display footer (e.g., "@ HCMUTE - 2024")
+            self.ui.display_text_center("@ HCMUTE - 2024", self.ui.height - 14, self.ui.light_red, 15,
+                                        self.title_font_path)
 
             pygame.display.update()
-
-    def game_implementation_no_obs_map(self, flag_position=None):
-        running = True
-        map_width, map_height = 850, 650
-        grid_size = 28
-        cell_size = map_width // grid_size - 6  # Size of each grid cell
-        margin_x = (self.ui.width - map_width) // 2
-        margin_y = (self.ui.height - map_height) // 2 - 10
-
-        # Define buttons
-        button_font = self.ui.get_font(20)
-        play_button_rect = pygame.Rect(50, 100, 200, 50)
-        timer_button_rect = pygame.Rect(self.ui.width - 350, 200, 200, 50)
-        points_button_rect = pygame.Rect(self.ui.width - 350, 300, 200, 50)
-        quit_button_rect = pygame.Rect(10, 10, 80, 40)  # Quit button in top-left corner
-        dropdown_rects = [
-            pygame.Rect(50, 150 + i * 40, 200, 40) for i in range(3)
-        ]  # Dropdown for DFS, BFS, A*
-        dropdown_options = ["DFS", "BFS", "A*"]
-        show_dropdown = False
-        # Initialize game state
-        timer = 0
-        points = 0
-
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    exit()
-
-                mouse_pos = pygame.mouse.get_pos()
-
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    # Handle dropdown options
-                    if show_dropdown:
-                        for i, rect in enumerate(dropdown_rects):
-                            if rect.collidepoint(mouse_pos):
-                                print(f"{dropdown_options[i]} selected")  # Replace with action
-                                show_dropdown = False  # Hide the dropdown after selection
-                                break
-
-                    if play_button_rect.collidepoint(mouse_pos):
-                        show_dropdown = not show_dropdown  # Toggle dropdown visibility
-
-                    # Check for Quit button click
-                    if quit_button_rect.collidepoint(mouse_pos):
-                        self.obstacle_map()
-                        running = False
-
-            self.ui.screen.fill(self.ui.black)
-
-            # Draw the map grid
-            for row in range(grid_size):
-                for col in range(grid_size):
-                    rect_x = margin_x + col * cell_size
-                    rect_y = margin_y + row * cell_size
-                    pygame.draw.rect(self.ui.screen, (169, 169, 169), (rect_x, rect_y, cell_size, cell_size), 0)
-                    pygame.draw.rect(self.ui.screen, self.ui.white, (rect_x, rect_y, cell_size, cell_size), 1)
-
-            # Draw the flag
-            if flag_position:
-                flag_img = pygame.image.load('assets/flag.jpg')  # Load the flag image
-                flag_img = pygame.transform.scale(flag_img, (cell_size, cell_size))  # Scale the flag to fit a grid cell
-                self.ui.screen.blit(flag_img, flag_position)
-
-            pygame.draw.rect(self.ui.screen, (66, 192, 104), play_button_rect)
-            play_text = button_font.render("Play", True, self.ui.white)
-            self.ui.screen.blit(play_text, (
-                play_button_rect.x + (play_button_rect.width - play_text.get_width()) // 2,
-                play_button_rect.y + (play_button_rect.height - play_text.get_height()) // 2))
-
-            # Render Timer button
-            timer_text = button_font.render(f"Timer: {timer}", True, self.ui.white)
-            self.ui.screen.blit(timer_text, (
-                timer_button_rect.x + (timer_button_rect.width - timer_text.get_width()) // 2,
-                timer_button_rect.y + (timer_button_rect.height - timer_text.get_height()) // 2))
-
-            # Render Points button
-            points_text = button_font.render(f"Points: {points}", True, self.ui.white)
-            self.ui.screen.blit(points_text, (
-                points_button_rect.x + (points_button_rect.width - points_text.get_width()) // 2,
-                points_button_rect.y + (points_button_rect.height - points_text.get_height()) // 2))
-
-            # Render Quit button
-            pygame.draw.rect(self.ui.screen, (192, 66, 66), quit_button_rect)
-            quit_text = button_font.render("Quit", True, self.ui.white)
-            self.ui.screen.blit(quit_text, (
-                quit_button_rect.x + (quit_button_rect.width - quit_text.get_width()) // 2,
-                quit_button_rect.y + (quit_button_rect.height - quit_text.get_height()) // 2))
-
-            if show_dropdown:
-                for i, rect in enumerate(dropdown_rects):
-                    pygame.draw.rect(self.ui.screen, (100, 100, 100), rect)
-                    option_text = button_font.render(dropdown_options[i], True, self.ui.white)
-                    self.ui.screen.blit(option_text, (
-                        rect.x + (rect.width - option_text.get_width()) // 2,
-                        rect.y + (rect.height - option_text.get_height()) // 2))
-
-            pygame.display.update()
-
-
-
-
-
-
+            clock.tick(30)  # 30 FPS
