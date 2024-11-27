@@ -118,8 +118,8 @@ class Menu:
         options = []
         option_left_padding = self.ui.width // 6
         first_opt_top_padding = self.ui.height // 3
-        image_paths = [r'assets/images/mem_tchi.png', r'assets/images/mem_ghuy.png', r'assets/images/mem_ducanh.png',
-                       r'assets/images/mem_sh1n.png', r'assets/images/empty_border.png']
+        image_paths = [r'assets/images/mem_tchi.png', r'assets/images/mem_jerry.png', r'assets/images/mem_danh.png',
+                       r'assets/images/mem_sh1nata.png', r'assets/images/empty_border.png']
 
         # Options display
         for i in range(len(self.option_names)):
