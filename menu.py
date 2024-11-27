@@ -109,7 +109,7 @@ class Menu:
         self.option_names = [
             '22110013 Nguyen Le Tung Chi',
             '22110034 Nguyen Gia Huy',
-            '221100 Do Duc Anh',
+            '2211008 Do Duc Anh',
             '22110082 Nguyen Duc Tri',
             'Return'
         ]
