@@ -100,13 +100,19 @@ class Menu:
     def credit_screen_handle(self):
         self.background_screen()
         self.current_screen = 'start_screen'
-        # Display start_screen unchanged things
+
+        # Display title
         self.ui.display_text_center("OUR MEMBER", self.ui.height // 10, self.ui.white, self.subtitle_font_size,
                                     self.text_font_path)  # Title display
 
-        # Options for start_screen
-        self.option_names = ['22110013 Nguyen Le Tung Chi', ' 22110034 Nguyen Gia Huy', '221100 Do Duc Anh',
-                             '22110082 Nguyen Duc Tri', 'Return']
+        # Options for credits
+        self.option_names = [
+            '22110013 Nguyen Le Tung Chi',
+            '22110034 Nguyen Gia Huy',
+            '221100 Do Duc Anh',
+            '22110082 Nguyen Duc Tri',
+            'Return'
+        ]
         self.option_functions = [None, None, None, None, self.go_back]
 
         # Menu and event handler
@@ -118,29 +124,48 @@ class Menu:
         options = []
         option_left_padding = self.ui.width // 6
         first_opt_top_padding = self.ui.height // 3
-        image_paths = [r'assets/images/mem_tchi.png', r'assets/images/mem_jerry.png', r'assets/images/mem_danh.png',
-                       r'assets/images/mem_sh1nata.png', r'assets/images/empty_border.png']
+        line_spacing = 40  # Adjust line height for consistent spacing
+
+        image_paths = [
+            r'assets/images/mem_tchi.jpeg',
+            r'assets/images/mem_jerry.jpeg',
+            r'assets/images/mem_danh.jpeg',
+            r'assets/images/mem_sh1nata.jpeg',
+            r'assets/images/empty_border.png'  # Image for the "Return" option
+        ]
 
         # Options display
         for i in range(len(self.option_names)):
             color = self.ui.light_blue if i == selected_option else self.ui.white
             options.append({
-                'option_rect': self.ui.display_text(self.option_names[i], option_left_padding,
-                                                    first_opt_top_padding + 35 * i, color, self.text_font_size,
-                                                    self.text_font_path),
+                'option_rect': self.ui.display_text(
+                    self.option_names[i],
+                    option_left_padding,
+                    first_opt_top_padding + line_spacing * i,  # Use consistent spacing
+                    color,
+                    self.text_font_size,
+                    self.text_font_path
+                ),
                 'option_func': self.option_functions[i]
             })
 
         # Member images
         img_x = self.ui.width // (5 / 3)
         img_y = self.ui.height // 3.5
-        # Fill old image (if appeared)
-        self.ui.screen.fill((0, 0, 0), (img_x, img_y, 200, 300))
-        self.ui.display_image(img_x, img_y, 0.7, image_paths[selected_option])
+
+        # Clear the image area before drawing
+        self.ui.screen.fill((0, 0, 0), (img_x, img_y, 300, 320))
+
+        # Load and display the selected image
+        try:
+            img = pygame.image.load(image_paths[selected_option])
+            scaled_img = pygame.transform.scale(img, (300, 320))  # Rescale to 300x320 pixels
+            self.ui.screen.blit(scaled_img, (img_x, img_y))
+        except pygame.error as e:
+            print(f"Error loading image: {e}")
 
         pygame.display.update()
         return options
-
 
     # Handle coming up events of specific screen
     def handle_events(self, update_screen, options, selected_option=0):
