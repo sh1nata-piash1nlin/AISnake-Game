@@ -2,6 +2,7 @@ import pygame
 import random
 from collections import deque
 import heapq
+from FinalProject.UI.SliderSpeed import Slider
 
 class Pathfinding:
     def __init__(self, map_size):
@@ -11,7 +12,8 @@ class Pathfinding:
             'dfs': self.dfs,
             'astar': self.a_star,
             'hill': self.hill_climbing,
-            'beam': self.beam_search
+            'beam': self.beam_search,
+            'current': self.bfs  # Default algorithm
         }
         self.directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
@@ -261,8 +263,11 @@ class BaseGameLogic:
         self.numb_rows, self.numb_cols = map_size
         self.initial_pos_row, self.initial_pos_col = initial_pos
 
-        self.snake_speed = 20
+        self.snake_speed = 50 # Default velocity
+        self.target_score = 150 #  Target score to stop the game
         self.clock = pygame.time.Clock()
+        self.start_time = None # Initialize the timer
+
         self.reset_game()
 
     def reset_game(self):
@@ -273,7 +278,6 @@ class BaseGameLogic:
         self.snake_list = [(self.head_row, self.head_col)]
         self.length_of_snake = 1
         self.score = 0
-        self.game_over = False
         self.game_close = False
 
         self.food_row, self.food_col = self.generate_random_food_position()
@@ -339,7 +343,7 @@ class AIPlayerGameLogic(BaseGameLogic):
     def __init__(self, ui, initial_pos):
         super().__init__(set(), (ui.rows, ui.cols), initial_pos)
         self.pathfinding = Pathfinding((self.numb_rows, self.numb_cols))
-
+        self.game_close = False
         self.ui = ui
         self.path = []
 
@@ -366,30 +370,162 @@ class AIPlayerGameLogic(BaseGameLogic):
             self.move_direction[0] = next_move[0] - self.head_row
             self.move_direction[1] = next_move[1] - self.head_col
 
+
+    # ==========================
+    #       GAME PLAYING screen
+    # ==========================
+
+    # GAME PLAYING SCREEN
     def game_loop(self):
-        self.update_screen_AI()
+        # Initialize variables for start button and algorithm dropdown
+        start_button_rect = pygame.Rect(self.ui.width - 265, 420, 150, 50)
+        algorithm_button_rect = pygame.Rect(self.ui.width - 280, 220, 210, 50)
+        dropdown_active = False
+        dropdown_options = ["BFS", "DFS", "A*", "Hill Climbing", "Beam Search"]
+        algorithm_mapping = {
+            "BFS": "bfs",
+            "DFS": "dfs",
+            "A*": "astar",
+            "Hill Climbing": "hill",
+            "Beam Search": "beam"
+        }
+        selected_algorithm_index = 0  # Default to BFS
+        game_started = False  # Flag to control when the game starts
+        target_reached = False  # To check if the target is reached
+        end_message_displayed = False  # Whether to display Target Reached/Unreached message
+
+        slider = Slider(self.ui.width - 250, 100, 150, 50, 60, self.snake_speed)
+        self.game_over = False
+
+        timer_start = None  # To store when the game starts
+
         while not self.game_close:
-            while self.game_over:
-                self.ui.clear_screen()
-                self.ui.display_message("You lose! Press Q-Quit or C-Play Again")
-                self.ui.refresh_screen()
-                self.handle_game_close_events()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
 
-            self.find_move()
-            self.update_snake_position()
-            self.check_collisions()
-            self.check_boundaries()
-            self.check_eat_food()
-            self.update_screen_AI()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.game_close = True
 
-            self.clock.tick(self.snake_speed)
+                    # Handle UP, DOWN, and ENTER keys for dropdown
+                    if dropdown_active:
+                        if event.key == pygame.K_DOWN:
+                            selected_algorithm_index = (selected_algorithm_index + 1) % len(dropdown_options)
+                        elif event.key == pygame.K_UP:
+                            selected_algorithm_index = (selected_algorithm_index - 1) % len(dropdown_options)
+                        elif event.key == pygame.K_RETURN:
+                            dropdown_active = False  # Close dropdown
 
-    def update_screen_AI(self):
-        self.ui.clear_screen()
-        self.ui.draw_grid()
-        self.ui.draw_obstacles(self.obstacles)
-        self.ui.draw_food((self.food_row, self.food_col), self.ui.light_red)
-        self.ui.draw_snake(self.snake_list, self.ui.red)
-        self.ui.display_text(f"AI: {self.score}", self.ui.width - 150, 10, self.ui.red, 20)
-        self.ui.refresh_screen()
+                    # Handle ENTER to toggle dropdown when not active
+                    elif event.key == pygame.K_RETURN and algorithm_button_rect.collidepoint(pygame.mouse.get_pos()):
+                        dropdown_active = True
 
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = event.pos
+                    # Start button click detection
+                    if start_button_rect.collidepoint(mouse_pos):
+                        game_started = True  # Enable the snake to move
+                        timer_start = pygame.time.get_ticks()  # Start the timer
+
+                    # Algorithm button click detection (toggle dropdown)
+                    elif algorithm_button_rect.collidepoint(mouse_pos):
+                        dropdown_active = not dropdown_active
+
+                # Slider update
+                slider.update(event)
+
+            # Game starts only if the Start button is clicked
+            if game_started and not target_reached:
+                self.snake_speed = int(slider.value)  # Update speed dynamically
+
+                # Update algorithm selection
+                selected_algorithm = dropdown_options[selected_algorithm_index]
+                selected_algorithm_key = algorithm_mapping[selected_algorithm]  # Use the mapping dictionary
+                self.pathfinding.path_algorithm['current'] = self.pathfinding.path_algorithm[selected_algorithm_key]
+
+                self.find_move()
+                self.update_snake_position()
+                self.check_collisions()
+                self.check_boundaries()
+                self.check_eat_food()
+
+                # Check if the target score is reached
+                if self.score >= self.target_score:
+                    target_reached = True
+                    game_started = False  # Stop the game
+                    elapsed_time = (pygame.time.get_ticks() - timer_start) // 1000
+
+            # Drawing UI elements
+            self.ui.clear_screen()
+            self.ui.draw_grid()
+            self.ui.draw_obstacles(self.obstacles)
+            self.ui.draw_food((self.food_row, self.food_col), self.ui.light_red)
+            self.ui.draw_snake(self.snake_list, self.ui.red)
+
+            # Display target points above the Speed slider
+            self.ui.display_text(f"Target Point: {self.target_score}", self.ui.width - 300, 30, self.ui.green, 15)
+
+            # Display AI score below the Speed slider
+            self.ui.display_text(f"AI: {self.score}", self.ui.width - 255, 150, self.ui.blue, 20)
+
+            # Display timer below the AI score
+            if timer_start:
+                elapsed_time = (pygame.time.get_ticks() - timer_start) // 1000
+                self.ui.display_text(f"Timer: {elapsed_time}s", self.ui.width - 275, 180, self.ui.white, 20)
+
+            # Speed slider
+            slider.draw(self.ui.screen, self.ui.default_font, "Speed", self.ui.gray, self.ui.red, self.ui.white)
+
+            # Algorithm button
+            algorithm_color = self.ui.red if dropdown_active else self.ui.white
+            self.ui.display_text(dropdown_options[selected_algorithm_index] if not dropdown_active else "Algorithm",
+                                 algorithm_button_rect.x + 10, algorithm_button_rect.y + 15, algorithm_color, 15)
+            pygame.draw.rect(self.ui.screen, self.ui.light_red, algorithm_button_rect, 2)
+
+            # Dropdown menu
+            if dropdown_active:
+                for i, option in enumerate(dropdown_options):
+                    option_color = self.ui.red if i == selected_algorithm_index else self.ui.white
+                    option_rect = pygame.Rect(self.ui.width - 280, 220 + (i+1) * 30, 210, 30)
+                    pygame.draw.rect(self.ui.screen, self.ui.gray, option_rect)
+                    self.ui.display_text(option, option_rect.x + 10, option_rect.y + 5, option_color, 10)
+
+            # Start button
+            start_color = self.ui.red if game_started else self.ui.white
+            self.ui.display_text("Start", start_button_rect.x + 25, start_button_rect.y + 15, start_color, 20)
+            pygame.draw.rect(self.ui.screen, self.ui.light_red, start_button_rect, 2)
+
+            # Display Target Reached or Unreached message
+            if target_reached and not end_message_displayed:
+                message = "Target Reached!" if self.score >= self.target_score else "Target Unreached!"
+                color = self.ui.red if self.score >= self.target_score else self.ui.white
+                self.ui.display_text(message, start_button_rect.x, start_button_rect.y + 60, color, 20)
+                pygame.display.flip()
+                pygame.time.delay(6000)  # Delay for 6 seconds before exiting
+                self.game_close = True  # Exit the game loop
+                end_message_displayed = True
+
+            self.ui.refresh_screen()
+            self.clock.tick(self.snake_speed if game_started else 30)
+            pygame.display.flip()
+
+    # def update_screen_AI(self):
+    #     self.ui.clear_screen()
+    #     # Draw game elements
+    #     self.ui.draw_grid()
+    #     self.ui.draw_obstacles(self.obstacles)
+    #     self.ui.draw_food((self.food_row, self.food_col), self.ui.light_red)
+    #     self.ui.draw_snake(self.snake_list, self.ui.red)
+    #
+    #     # Display current score
+    #     self.ui.display_text(f"AI: {self.score}", self.ui.width - 250, 10, self.ui.red, 20)
+    #     # Display target score
+    #     self.ui.display_text(f"Target: {self.target_score}", self.ui.width - 250, 40, self.ui.green, 20)
+    #     # Display elapsed time
+    #     if self.start_time:
+    #         elapsed_time = int(pygame.time.get_ticks() / 1000) - self.start_time
+    #         self.ui.display_text(f"Time: {elapsed_time}s", self.ui.width - 250, 70, self.ui.white, 20)
+    #
+    #     self.ui.refresh_screen()
