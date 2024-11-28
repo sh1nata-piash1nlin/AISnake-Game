@@ -1,4 +1,3 @@
-import pygame
 from Logic.ailogic import *
 from Logic.ailogic import AIPlayerGameLogic
 
@@ -109,7 +108,7 @@ class Menu:
         self.option_names = [
             '22110013 Nguyen Le Tung Chi',
             '22110034 Nguyen Gia Huy',
-            '2211008 Do Duc Anh',
+            '22110008 Do Duc Anh',
             '22110082 Nguyen Duc Tri',
             'Return'
         ]
@@ -187,6 +186,11 @@ class Menu:
 
     def go_back(self):
         return self.start_screen_handle
+
+    # ==========================
+    #       Setting screen
+    # ==========================
+
 
     def show_setting(self):
         selected_option = 0
