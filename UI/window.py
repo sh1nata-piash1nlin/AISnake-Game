@@ -3,7 +3,7 @@ import pygame
 class UI:
     def __init__(self):
         self.width, self.height = 1000, 600
-        self.screen = pygame.display.set_mode((self.width, self.height))
+        self.screen = pygame.display.set_mode((self.width, self.height), pygame.DOUBLEBUF)
         pygame.display.set_caption('Snake Game')
 
         self.black = (0, 0, 0)
@@ -18,6 +18,7 @@ class UI:
         self.gray = (34, 34, 34)
 
         self.default_font_path = r'assets/PressStart2P-Regular.ttf'
+        self.default_font = pygame.font.Font(self.default_font_path, 20)  # Default font with size 20
 
         self.background = pygame.image.load('assets/background2.jpeg')
         self.background = pygame.transform.scale(self.background, (self.width, self.height))
@@ -103,3 +104,4 @@ class UI:
         image = pygame.image.load(img_path)
         image = pygame.transform.scale(image, (image.get_width() * scale_rate, image.get_height() * scale_rate))
         return self.screen.blit(image, (x, y))
+
